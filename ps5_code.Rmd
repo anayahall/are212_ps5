@@ -26,9 +26,11 @@ p_load(knitr, kableExtra, tidyverse, dplyr, readr, magrittr, ggplot2, readxl, as
 # Part 2: Instrumental Variables
 
 ## Question 1
-Revisit the model from *Problem Set #3*, including ability.
+Revisit the model from *Problem Set #3*, now including ability.
 
 $log(wage) = \beta_0 + exper \cdot \beta_1 + tenure \cdot \beta_2 + married \cdot \beta_3 + south \cdot \beta_4 + urban \cdot \beta_5 + black \cdot \beta_6 + educ \cdot \beta_7 + abil \cdot \gamma + \epsilon$
+
+
 
 ```{r read_data, message=FALSE}
 
@@ -223,7 +225,6 @@ BGtest <- function(data, y_data, X_data, order = 1) {
   
 }
 
-BGtest(data = gdp_data, y_data = "delta_p", X_data = c("yr_qtr", "Realgdp", "Realcons", "Realinvs", "Realgovt", "Realdpi", "CPI_U", "M1", "Tbilrate", "Unemp", "Pop", "Infl", "Realint")) %>% knitr::kable()
 
 # ols(data = gdp_data, y_data = "delta_p", X_data = c("Year", "Realgdp", "Realcons", "Realinvs", "Realgovt", "Realdpi", "CPI_U", "M1", "Tbilrate", "Unemp", "Pop", "Infl", "Realint"))
 
@@ -274,7 +275,6 @@ BPtest <- function(data, y_data, X_data, order = 1) {
   
   }
 
-BPtest(data = gdp_data, y_data = "delta_p", X_data = c("yr_qtr", "Realgdp", "Realcons", "Realinvs", "Realgovt", "Realdpi", "CPI_U", "M1", "Tbilrate", "Unemp", "Pop", "Infl", "Realint")) %>% knitr::kable()
 
 ```
 
@@ -325,7 +325,6 @@ DWtest <- function(data, y_data, X_data) {
   
 }
 
-DWtest(data = gdp_data, y_data = "delta_p", X_data = c("yr_qtr", "Realgdp", "Realcons", "Realinvs", "Realgovt", "Realdpi", "CPI_U", "M1", "Tbilrate", "Unemp", "Pop", "Infl", "Realint")) %>% knitr::kable()
 
 
 ```
@@ -479,76 +478,6 @@ fgls_sc <- function(data, y_var, X_vars, Z_vars, intercept = T, procedure = "pra
   return(results)
 }
 
-# Define covariates (again)
-rhs_vars <- c("yr_qtr", "Realgdp", "Realcons", "Realinvs", "Realgovt", "Realdpi", "CPI_U", "M1", "Tbilrate", "Unemp", "Pop", "Infl", "Realint")
-
-# Run the FGLS function
-prais <- fgls_sc(
-  data = gdp_data,
-  y_var = "delta_p",
-  X_vars = rhs_vars,
-  Z_vars = rhs_vars,
-  intercept = T)
-
-# Report parameter values, standard errors and t-statistics
-prais$ttest
-
-newres <- prais$vars$e
-```
-Most of the signs on the parameter estimates are the same, but the magnitude has changed. Some significance results have changed as well!
-
-``` {r plot PW results}
-# plot(gdp_data$Year, newres)
-
-ggplot(gdp_data, aes(x=Year, y=newres)) + geom_line()
-
-
-```
-
-
-
-``` {r test_loop for C matrix, include = FALSE}
-rho <- .3
-t <- 15
-G <- matrix(NA, nrow=t, ncol =t)
-  for (i in 1:t) {
-    for (j in 1:t) {
-      if (j == 1 & i == 1) G[i,j] <- sqrt(1-rho)
-      else if (i == j) G[i,j] <- 1
-      else if (i == j + 1) G[i,j] <- -rho
-      else G[i,j] <- 0
-    }
-  }
-
-
-```
-
-
-``` {r COtest}
-
-# Adjust fgls_sc function above to include an option to omit first observation???
-# ---> I DON'T THINK I DID THIS RIGHT!! PLEASE CHECK :)
-
-# Define covariates (again)
-rhs_vars <- c("yr_qtr", "Realgdp", "Realcons", "Realinvs", "Realgovt", "Realdpi", "CPI_U", "M1", "Tbilrate", "Unemp", "Pop", "Infl", "Realint")
-
-# Run the FGLS function
-cochrane <- fgls_sc(
-  data = gdp_data,
-  y_var = "delta_p",
-  X_vars = rhs_vars,
-  Z_vars = rhs_vars,
-  procedure = "cochrane",
-  intercept = T)
-
-# Report parameter values, standard errors and t-statistics
-cochrane$ttest
-
-newres2 <- cochrane$vars$e
-
-# Rerun FGLS
-
-# t-test table
 
 ```
 
