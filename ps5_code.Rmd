@@ -25,74 +25,24 @@ p_load(knitr, kableExtra, tidyverse, dplyr, readr, magrittr, ggplot2, readxl, as
 
 # Part 2: Instrumental Variables
 
-
-
 ## Question 1
-**Read the data into R. Plot the series against time and make sure your data are read in correctly.**
-Also, print out data as ascii file and compare the first and last row to make sure there's no funny business with how the data were read in. Check a few points in the middle too.
+Revisit the model from *Problem Set #3*, including ability.
 
-```{r read_data, message = FALSE}
+$log(wage) = \beta_0 + exper \cdot \beta_1 + tenure \cdot \beta_2 + married \cdot \beta_3 + south \cdot \beta_4 + urban \cdot \beta_5 + black \cdot \beta_6 + educ \cdot \beta_7 + abil \cdot \gamma + \epsilon$
 
-# Column names from codebook
-names <- c("Year", "Qtr", "Realgdp", "Realcons", "Realinvs", "Realgovt", "Realdpi", "CPI_U", "M1", "Tbilrate", "Unemp", "Pop", "Infl", "Realint")
+```{r read_data, message=FALSE}
 
-# Read in txt file as data.frame using column names from codebook
-gdp_data <- readr::read_table2("data.txt",
-                             col_names = names) 
+# Read in CSV as data.frame
+wage_df <- readr::read_csv("nls80.csv")
 
+# Select only the variables in our model
+wage_df %<>% select(lwage, wage, exper, tenure, married, south, urban, black, educ)
 ```
 
-
-``` {r plot_series, message = FALSE}
-
-#Plot the variables in our model against time
-ggplot(data = gather(gdp_data, key, value, -Year), aes(x = Year, y = value)) +
-  geom_line() +
-  facet_wrap(~ key, scales = "free") +
-  ggtitle("GDP data variables over time") +
-  ylab("Value") +
-  xlab("Year") + theme_minimal()
-
-```
-
-```{r check_ascii}
-
-write.table(x = gdp_data, file = "data_ascii")
-
-# ascii(x = gdp_data, include.rownames = T)
-
-```
-So far, everthing looks good.
+### (a) Bias of coefficient on education
+Derive the bias of $\beta_7$. Show which direction the bias goes in depending on whether the correlation between ability and education is positive or negative.
 
 
-## Question 2: Phillips Curve
-Estimate the estimations augmented Phillips Curve (see Greene p. 251)
-
-Equation:
-
-$\Delta p_t - \Delta p_{t-1} = \beta_1 + \beta_2\cdot u_t + \epsilon_t$
-
-### (a) Generate dependent variable
-_Hint: Check the codebook; may need to drop one of our variables._
-
-Need to drop the first row because the first observation for Infl is missing
-Phillip's curve regresses inflation (%) on unemployment (%)
-
-```{r prepare_data}
-# Drop first observation (row)
-gdp_data <- gdp_data[-1,]
-
-# Generate Dependent Variable
-gdp_data %<>% mutate(delta_p = Infl - lag(Infl))
-gdp_data <- gdp_data[-1,] # to drop the first NA
-
-# SHOULD I CONCATENATE YEAR and QUARTER? That way I don't have to drop quarter!
-gdp_data %<>%  transform(yr_qtr = as.numeric(paste(Year, Qtr, sep=".")))
-
-```
-
-### (b) Estimate relationship
-Estimate relationship above. Report parameter estimates, standard errors, t-statistics and $R^2$.
 
 First, let's load our OLS function. 
 ```{r OLS functions}
@@ -222,43 +172,7 @@ ols <- function(data, y_data, X_data, intercept = T, H0 = 0, two_tail = T, alpha
 ```
 \newpage
 
-
-``` {r model_1}
-
-model_1 <- ols(gdp_data, 
-               y_data = "delta_p", 
-               X_data = "Unemp")
-
-model_1$ttest
-
-model_1$mof_table
-
-```
-
-
-### (c) Plot residuals against time
-
-```{r plot_resid}
-gdp_data$res <- model_1$vars$e
-
-ggplot(gdp_data, aes(x=Year, y=res)) + geom_line()
-
-```
-Looking at this plot, we likely have a **NEGATIVE** auto-correlation issue!
-
-
-### (d) Breusch-Godfrey
-Use Breusch-Godfrey test to test for first order correlation
-
-Procedure
-1. Run OLS & save residuals
-2. Augment with column of lagged residuals --> X0 (fill in any NAs with zeros)
-3. Auxillary regression: regress residuals et on X0t
-4. Test Statistic:
-
-$LM = T \cdot R^2_0$
-
-Null hypothesis is no serial correlation, or $H_0 : LM < \chi^2$ critical value. Our alternate hypothesis is first order serial correlation, or $H_A : LM > \chi^2$ critical value.
+# FUNCTIONS FROM PS4
 
 ```{r breusch-godfrey test}
 
@@ -314,18 +228,6 @@ BGtest(data = gdp_data, y_data = "delta_p", X_data = c("yr_qtr", "Realgdp", "Rea
 # ols(data = gdp_data, y_data = "delta_p", X_data = c("Year", "Realgdp", "Realcons", "Realinvs", "Realgovt", "Realdpi", "CPI_U", "M1", "Tbilrate", "Unemp", "Pop", "Infl", "Realint"))
 
 ```
-We cannot reject the null that there is no serial correlation ~~~~~~(that is, we might have a problem with serial correlation!)~~~~~~~ contradictory 
-
-
-### (e) Box-Pierce
-Use Box-Pierce test to test for first order correlation. Report test statistic and pvalue. 
-
-Test-statistic:
-$Q = T \Sigma\hat\rho^2_j$ 
-distributed $\chi^2_p$
-
-where $\hat\rho^2_j$ are the OLS coefficients from a regression of $e_t$ on the $j^{th}$ lag (without an intercept!)
-$\hat\rho^2_j = \frac {\Sigma_{t=j+1} e_t e_{t-j}}{\Sigma_{t=1} e^2_t}$
 
 
 ```{r box-pierce test}
@@ -376,16 +278,6 @@ BPtest(data = gdp_data, y_data = "delta_p", X_data = c("yr_qtr", "Realgdp", "Rea
 
 ```
 
-_(I'm not sure this is correct.....)_
-
-Again, we fail to reject the null- we likely have an issue with serial correlation!!
-
-### (f) Durbin Watson
-Use the Durbin Watson test to test for first order autocorrelation. Report test statistic and interpret.
-
-Test statistic:
-
-$ d = \frac {\Sigma_{t=2} (e_t - e_{t-1})^2}{ \Sigma_{t=1} e^2_t} $
 
 ```{r durbin-watson test}
 
@@ -439,12 +331,6 @@ DWtest(data = gdp_data, y_data = "delta_p", X_data = c("yr_qtr", "Realgdp", "Rea
 ```
 
 
-### (g) Prais Winsten procedure
-Use the Prais Winsten procedure to correct for the serial correlation problem. Report parameter estimates, standard errors, and t-statistics. Plot new residuals against time.
-
-Instead of $\hat\rho$ use $\hat\rho \frac{T-k}{T-1}$ in FLGS.
-
-FGLS function from Problem Set #3
 ```{r FGLS function, include = FALSE}
 
 fgls <- function(data, y_var, X_vars, Z_vars, intercept = T) {
@@ -487,7 +373,6 @@ fgls <- function(data, y_var, X_vars, Z_vars, intercept = T) {
 }
 ```
 
-Function to return $\hat\rho$ estimator (for use in Prais Winsten and Cochrane Orcutt procedures)
 
 ``` {r rho_estimator}
 rho_ols <- function(data, y_data, X_data, order = 1) {
@@ -638,9 +523,6 @@ G <- matrix(NA, nrow=t, ncol =t)
 
 ```
 
-### (h) Cochrane Orcutt procedure
-Use the Cochrane Orcutt procedure to correct for the serial correlation problem. Report parameter estimates, standard errors, t-statistics and a plot of the new residuals against time. 
-_Did dropping the initial observation change the results a lot?_
 
 ``` {r COtest}
 
@@ -670,16 +552,6 @@ newres2 <- cochrane$vars$e
 
 ```
 
-I don't think I dropped the first observation correctly, but at present it doesn't seem to have changed the results dramatically.....
-
-``` {r plot CO results}
-
-#plot(gdp_data$Year, newres2)
-
-ggplot(gdp_data, aes(x=Year, y=newres2)) + geom_line()
-
-
-```
 
 ### (i) Hildreth Lu procedure
 
@@ -751,8 +623,6 @@ rhos <- seq(-0.95,0.95, by=0.01)
 
 
 ```
-
-
 
 
 
