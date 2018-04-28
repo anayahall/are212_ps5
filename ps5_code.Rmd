@@ -228,7 +228,7 @@ Magnitude of the parameter estimate on education decreased. If IQ **is** a good 
 card_df <- readr::read_csv("card.csv")
 
 # Select only the variables in our model
-card_df %<>% select(lwage, wage, educ, exper, expersq, black, south, smsa, smsa66, reg661, reg662, reg663, reg664, reg665,reg666, reg667, reg668, nearc4)
+card_df %<>% select(lwage, wage, educ, exper, expersq, black, south, smsa, smsa66, reg661, reg662, reg663, reg664, reg665,reg666, reg667, reg668, nearc4, nearc2)
 
 head(card_df)
 ```
@@ -279,7 +279,72 @@ Estimate the *log(wage)* equation by instrumental variables, using *nearc4* as a
 
 Compare the 95% confidence interval for the return to educutioan to that obtained from the Least Squares regression above.
 
+
+First bring in functions for Whites Heteroskedasticity robust estimators ???
+[below is code from ps3, not quite right though.]
+```{r Spherical varcov fxn}
+
+# Function for OLS coef., SE, t-stat, and p-value
+vcov_ols <- function(data, y_var, X_vars, intercept = T) {
+  # Turn data into matrices
+  y <- to_matrix(data, y_var)
+  X <- to_matrix(data, X_vars)
+  # Add intercept
+  if (intercept == T) X <- cbind(1, X)
+  # Calculate n and k for degrees of freedom
+  n <- nrow(X)
+  k <- ncol(X)
+  # Estimate coefficients
+  b <- b_ols(y, X)
+  # Update names
+  if (intercept == T) rownames(b)[1] <- "Intercept"
+  # Calculate OLS residuals
+  e <- y - X %*% b
+  # Calculate s^2
+  s2 <- (t(e) %*% e) / (n-k)
+  s2 %<>% as.numeric()
+  # Inverse of X'X
+  XX_inv <- solve(t(X) %*% X)
+  # Return the results
+  return(as.numeric(s2) * XX_inv)
+}  
+```
+
+
+```{r Robust varcov fxn}
+vcov_white <- function(data, y_var, X_vars, intercept = T) {
+  # Turn data into matrices
+  y <- to_matrix(data, y_var)
+  X <- to_matrix(data, X_vars)
+  # Add intercept
+  if (intercept == T) X <- cbind(1, X)
+  # Calculate n and k for degrees of freedom
+  n <- nrow(X)
+  k <- ncol(X)
+  # Estimate coefficients
+  b <- b_ols(y, X)
+  # Update names
+  if (intercept == T) rownames(b)[1] <- "Intercept"
+  # Calculate OLS residuals
+  e <- y - X %*% b
+  # Inverse of X'X
+  XX_inv <- solve(t(X) %*% X)
+  # For each row, calculate x_i' x_i e_i^2; then sum
+  sigma_hat <- lapply(X = 1:n, FUN = function(i) {
+    # Define x_i
+    x_i <- matrix(as.vector(X[i,]), nrow = 1)
+    # Return x_i' x_i e_i^2
+    return(t(x_i) %*% x_i * e[i]^2)
+  }) %>% Reduce(f = "+", x = .)
+  # Return the results
+  return(XX_inv %*% sigma_hat %*% XX_inv)
+}
+```
+
+
 ```{r singleIV}
+
+# RE-ESTIMATE THIS WITH HETEROSKEDASTICITY ROBUST!! 
 
 Z_vars <- c("nearc4", "exper", "expersq", "black", "south", "smsa", "smsa66", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668")
 
@@ -322,15 +387,59 @@ ci_95(sIV) %>% knitr::kable(caption = "Return using nearcr as instrument")
 ci_95(model1) %>% knitr::kable(caption = "Return on education")
 
 ```
-Wider confidence intervals...
+Wider confidence intervals using *near4c* as IV than in the original model.
 
 
 ### (e) Multiple IV
-Use nearc2 and nearc4 as instruments for educ. 
-Comment on the significance of the partial correlations of both instruments in the reduced form. 
-Show your standard errors from the second stage and compare them to the correct standard errors.
+Use *nearc2* and *nearc4* as instruments for *educ.* 
+
+First, lets build a function for two stage least squares (2SLS or TSLS) - Multiple Instruments
+``` {r}
+tsls <- function(data, dep_var, endo_vars, exo_vars, i_vars) {
+  
+  # first stage: Regress the endogenous variables on all exogenous variables and an intercept, save fitted values
+  X1 <- unlist(list(c(exo_vars), c(i_vars)))
+  x_hat <- ols(data = data, y_data = endo_vars, X_data = X1)$vars$y_hat
+  
+  namesdf <- names(data)
+  data %<>% cbind(x_hat) 
+  colnames(data) <- c(namesdf, "x_hat")
+  
+  # second stage: Rgress the dependent variable on the exogenous x and x_hat
+  X2 <- unlist(list(c(exo_vars), "x_hat"))
+  
+  s2 <- ols(data, y_data = dep_var, X_data = X2)
+  
+  return(s2)
+  
+}
+
+exo_vars <- X1 <- c("exper", "expersq", "black", "south", "smsa", 
+              "smsa66", "reg661", "reg662", "reg663", "reg664", 
+              "reg665", "reg666", "reg667", "reg668")
+endo_vars <- c("educ")
+i_vars <- c("nearc4", "nearc2")
+dep_var <- c("lwage")
+
+
+#TEST FUNCTION
+two_stage <- tsls(data = card_df, dep_var, endo_vars, exo_vars, i_vars)
+
+
+
+```
+
+*Comment on the significance of the partial correlations of both instruments in the reduced form.* 
+*Show your standard errors from the second stage and compare them to the correct standard errors.*
+
+
+
 
 
 ### (f) Hausman test
 Conduct a Hausman test for endogeneity of educ. Report your test statistic, critical value and p-value.
 
+``` {r hausman_function}
+
+
+```
