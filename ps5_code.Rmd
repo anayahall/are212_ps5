@@ -253,8 +253,12 @@ model1 <- ols(card_df, "lwage", rhs_vars)
 model1$ttest
 
 ```
+*CHECK RESULTS AGAINST PAPER*---> I can't find this ?
+
+
 
 ### (c) Reduced Form
+Estimate reduced form equation for *educ* containing all of the explanatory variables and the dummy variable *nearc4*
 
 ```{r reduced_form via OLS}
 
@@ -265,7 +269,7 @@ rf <- ols(card_df, "educ", rhs_vars)
 rf$ttest
 
 ```
-Yes, the partial correlation IS statistically significant!
+Yes, the partial correlation between *educ* and *nearc4* IS statistically significant!
 
 ### (d) Single IV
 Estimate the log(wage) equation by instrumental variables, using nearc4 as an instrument for educ. Compare the 95% confidence interval for the return to educutioan to that obtained from the Least Squares regression above.
