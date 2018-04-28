@@ -57,7 +57,7 @@ $plim b_7 = \beta_7 + \gamma \cdot \frac {Cov [ abil , educ ]} {Var [educ]}$
 Truth is $\beta_7$ , bias is $\gamma \cdot \frac {Cov [ abil , educ ]} {Var [educ]}$
 
 We expect the sign on $\gamma$ to be positive (higher abiltiy should lead to higher wage), the covariance of ability and education to also be positive (more able people acheive higher levels of education), and, of course, the variance of education is positive.
-Thus, the bias will also be *positive*
+Thus, the bias will also be *positive*.
 
 ### (b) Proxy for ability
 Estimate the model above excluding ability, record your parameter estimates, standard errors and $R^2$.
@@ -217,7 +217,7 @@ model_iq$mof
 *What happens to returns to schooling? Does this result confirm your suspicion of how ability and schooling
 are expected to be correlated?*
 
-Magnitude of the parameter estimate on education decreased, as did the standard error around the estimate. If IQ is a good proxy for ability, this does confirm our suspicion that ability is correlated with education.
+Magnitude of the parameter estimate on education decreased. If IQ is a good proxy for ability, this does confirm our suspicion that ability is correlated with education. In the first model, some of the returns on ability (IQ) were mis-attributed to education. In the second model, we correct for this, and see that the parameter estimate on ability is indeed significant.
 
 
 ## Question 2: Recreate results from Card
