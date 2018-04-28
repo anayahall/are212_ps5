@@ -280,6 +280,56 @@ Estimate the *log(wage)* equation by instrumental variables, using *nearc4* as a
 Compare the 95% confidence interval for the return to educutioan to that obtained from the Least Squares regression above.
 
 
+
+```{r singleIV}
+
+# RE-ESTIMATE THIS WITH HETEROSKEDASTICITY ROBUST!! 
+
+Z_vars <- c("nearc4", "exper", "expersq", "black", "south", "smsa", "smsa66", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668")
+
+# Run OLS
+sIV <- ols(card_df, "lwage", Z_vars)
+
+# Parameter Estimates
+sIV$ttest
+
+```
+
+
+``` {r CI_function}
+
+# Create function to use OLS results to calculate 95% Confidence Interval
+ci_95 <- function(data) {
+  SE <- data$se
+  b <- data$b
+  
+  CI <- matrix(b) %>% 
+        cbind(SE) %>% 
+            cbind(CI_l = (b - 1.96 * SE), 
+                  CI_u = (b + 1.96 * SE))
+  colnames(CI) <- c("beta", "SE", "CI Lower", "CI Upper")
+  rownames(CI) <- rownames(b)
+
+  CI_table <-  CI[,3:4] #%>% knitr::kable()
+
+  return(CI_table)
+  
+  
+}
+
+```
+
+``` {r}
+# Compare 95% confidence interval for return on education using nearc4 has IV to that of the OLS above (model_1)
+ci_95(sIV) %>% knitr::kable(caption = "Return using nearcr as instrument")
+
+ci_95(model1) %>% knitr::kable(caption = "Return on education")
+
+```
+Wider confidence intervals using *near4c* as IV than in the original model.
+
+###### ----> heteroskedastic robust?
+
 First bring in functions for Whites Heteroskedasticity robust estimators ???
 [below is code from ps3, not quite right though.]
 ```{r Spherical varcov fxn}
@@ -342,52 +392,9 @@ vcov_white <- function(data, y_var, X_vars, intercept = T) {
 ```
 
 
-```{r singleIV}
-
-# RE-ESTIMATE THIS WITH HETEROSKEDASTICITY ROBUST!! 
-
-Z_vars <- c("nearc4", "exper", "expersq", "black", "south", "smsa", "smsa66", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668")
-
-# Run OLS
-sIV <- ols(card_df, "lwage", Z_vars)
-
-# Parameter Estimates
-sIV$ttest
-
-```
 
 
-``` {r CI_function}
 
-# Create function to use OLS results to calculate 95% Confidence Interval
-ci_95 <- function(data) {
-  SE <- data$se
-  b <- data$b
-  
-  CI <- matrix(b) %>% 
-        cbind(SE) %>% 
-            cbind(CI_l = (b - 1.96 * SE), 
-                  CI_u = (b + 1.96 * SE))
-  colnames(CI) <- c("beta", "SE", "CI Lower", "CI Upper")
-  rownames(CI) <- rownames(b)
-
-  CI_table <-  CI[,3:4] #%>% knitr::kable()
-
-  return(CI_table)
-  
-  
-}
-
-```
-
-``` {r}
-# Compare 95% confidence interval for return on education using nearc4 has IV to that of the OLS above (model_1)
-ci_95(sIV) %>% knitr::kable(caption = "Return using nearcr as instrument")
-
-ci_95(model1) %>% knitr::kable(caption = "Return on education")
-
-```
-Wider confidence intervals using *near4c* as IV than in the original model.
 
 
 ### (e) Multiple IV
@@ -433,13 +440,19 @@ two_stage <- tsls(data = card_df, dep_var, endo_vars, exo_vars, i_vars)
 *Show your standard errors from the second stage and compare them to the correct standard errors.*
 
 
-
+dee doo doo :)
 
 
 ### (f) Hausman test
+**Should we worry about endogenaity?**
 Conduct a Hausman test for endogeneity of educ. Report your test statistic, critical value and p-value.
 
 ``` {r hausman_function}
+
+hausman <- function() {
+  
+  
+}
 
 
 ```
