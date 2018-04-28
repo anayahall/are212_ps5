@@ -25,12 +25,10 @@ p_load(knitr, kableExtra, tidyverse, dplyr, readr, magrittr, ggplot2, readxl, as
 
 # Part 2: Instrumental Variables
 
-## Question 1
+## Question 1: NLS80
 Revisit the model from *Problem Set #3*, now including ability.
 
 $log(wage) = \beta_0 + exper \cdot \beta_1 + tenure \cdot \beta_2 + married \cdot \beta_3 + south \cdot \beta_4 + urban \cdot \beta_5 + black \cdot \beta_6 + educ \cdot \beta_7 + abil \cdot \gamma + \epsilon$
-
-
 
 ```{r read_data, message=FALSE}
 
@@ -173,6 +171,66 @@ ols <- function(data, y_data, X_data, intercept = T, H0 = 0, two_tail = T, alpha
 
 ```
 \newpage
+
+
+## Question 2: Recreate results from Card
+
+### (a) Read in data & plot
+```{r read_data2, message=FALSE}
+
+# Read in CSV as data.frame
+card_df <- readr::read_csv("card.csv")
+
+# Select only the variables in our model
+card_df %<>% select(lwage, wage, educ, exper, expersq, black, south, smsa, smsa66, reg661, reg662, reg663, reg664, reg665,reg666, reg667, reg668, nearc4)
+
+head(card_df)
+```
+``` {r plot_series}
+ggplot(data = gather(card_df), aes(x = value)) +
+  geom_histogram() +
+  facet_wrap(~ key, scales = "free") +
+  ggtitle("Histograms of Wage Data variables") +
+  ylab("Count") +
+  xlab("Value") + theme_minimal()
+```
+
+### (b) OLS on log(wage)
+
+``` {r lwage_ols}
+
+rhs_vars <- c("educ", "exper", "expersq", "black", "south", "smsa", "smsa66", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668")
+
+model1 <- ols(card_df, "lwage", rhs_vars)
+
+model1$ttest
+
+```
+
+### (c) Reduced Form
+
+```{r reduced_form via OLS}
+
+rhs_vars <- c("nearc4", "exper", "expersq", "black", "south", "smsa", "smsa66", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668")
+
+rf <- ols(card_df, "educ", rhs_vars)
+
+rf$ttest
+
+```
+Yes, the partial correlation IS statistically significant!
+
+### (d) Single IV
+Estimate the log(wage) equation by instrumental variables, using nearc4 as an instrument for educ. Compare the 95% confidence interval for the return to educutioan to that obtained from the Least Squares regression above.
+
+### (e) Multiple IV
+Use nearc2 and nearc4 as instruments for educ. 
+Comment on the significance of the partial correlations of both instruments in the reduced form. 
+Show your standard errors from the second stage and compare them to the correct standard errors.
+
+### (f) Hausman test
+Conduct a Hausman test for endogeneity of educ. Report your test statistic, critical value and p-value.
+
 
 # FUNCTIONS FROM PS4
 
