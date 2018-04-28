@@ -37,12 +37,30 @@ $log(wage) = \beta_0 + exper \cdot \beta_1 + tenure \cdot \beta_2 + married \cdo
 wage_df <- readr::read_csv("nls80.csv")
 
 # Select only the variables in our model
-wage_df %<>% select(lwage, wage, exper, tenure, married, south, urban, black, educ)
+wage_df %<>% select(lwage, wage, exper, tenure, married, south, urban, black, educ, iq)
 ```
 
 ### (a) Bias of coefficient on education
 Derive the bias of $\beta_7$. Show which direction the bias goes in depending on whether the correlation between ability and education is positive or negative.
 
+$ abil = \delta_0 + exper \cdot \delta_1 + tenure \cdot \delta_2 + married \cdot \delta_3 + south \cdot \delta_4 + urban \cdot \delta_5 + black \cdot \delta_6 + educ \cdot \delta_7 + \eta$
+
+
+$log(wage) = (\beta_0 + \gamma \delta_0) + (\beta_1 + \gamma \delta_1) \cdot educ + (\beta_2 + \gamma \delta_2) \cdot tenure + (\beta_3 + \gamma \delta_3) \cdot married + (\beta_4 + \gamma \delta_4) \cdot south + (\beta_5 + \gamma \delta_5) \cdot urban  + (\beta_6 + \gamma \delta_6) \cdot black + (\beta_7 + \gamma \delta_7) \cdot educ + \gamma \eta + v$
+
+$plim b_7 = \beta_7 + \gamma \delta_7$
+
+Assume that all $\delta$’s are zero except for the one on the variable of interest (education)
+
+$plim b_7 = \beta_7 + \gamma \cdot \frac {Cov [ abil , educ ]} {Var [educ]}$
+
+Truth is $\beta_7$ , bias is $\gamma \cdot \frac {Cov [ abil , educ ]} {Var [educ]}$
+
+We expect the sign on $\gamma$ to be positive (higher abiltiy should lead to higher wage), the covariance of ability and education to also be positive (more able people acheive higher levels of education), and, of course, the variance of education is positive.
+Thus, the bias will also be *positive*
+
+### (b) Proxy for ability
+Estimate the model above excluding ability, record your parameter estimates, standard errors and $R^2$.
 
 
 First, let's load our OLS function. 
@@ -172,6 +190,34 @@ ols <- function(data, y_data, X_data, intercept = T, H0 = 0, two_tail = T, alpha
 
 ```
 \newpage
+
+
+```{r model1}
+model_1 <- ols(wage_df, y_data = "lwage", 
+               X_data = c("exper", "tenure", "married", "south", "urban", "black", "educ"))
+
+model_1$ttest
+
+model_1$mof
+```
+
+### (c) Include IQ
+(c) Estimate the model including IQ as a proxy, record your parameter estimates, standard errors and $R^2$.
+
+```{r model_iq}
+model_iq <- ols(wage_df, y_data = "lwage", 
+               X_data = c("exper", "tenure", "married", "south", "urban", "black", "educ", "iq"))
+
+model_iq$ttest
+
+model_iq$mof
+```
+
+### (d) Returns on education.
+*What happens to returns to schooling? Does this result confirm your suspicion of how ability and schooling
+are expected to be correlated?*
+
+Magnitude of the parameter estimate on education decreased, as did the standard error around the estimate. If IQ is a good proxy for ability, this does confirm our suspicion that ability is correlated with education.
 
 
 ## Question 2: Recreate results from Card
