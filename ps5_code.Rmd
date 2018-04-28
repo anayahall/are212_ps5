@@ -23,6 +23,8 @@ p_load(knitr, kableExtra, tidyverse, dplyr, readr, magrittr, ggplot2, readxl, as
 # Part 1: Theory
 (Optional -- skip for now!)
 
+TEST TEST TEST
+
 # Part 2: Instrumental Variables
 
 ## Question 1: NLS80
