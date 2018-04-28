@@ -286,16 +286,15 @@ Z_vars <- c("nearc4", "exper", "expersq", "black", "south", "smsa", "smsa66", "r
 # Run OLS
 sIV <- ols(card_df, "lwage", Z_vars)
 
-
-# Generate 95% CI (for above as well)
+# Parameter Estimates
 sIV$ttest
-
 
 ```
 
+
 ``` {r CI_function}
 
-
+# Create function to use OLS results to calculate 95% Confidence Interval
 ci_95 <- function(data) {
   SE <- data$se
   b <- data$b
@@ -307,7 +306,7 @@ ci_95 <- function(data) {
   colnames(CI) <- c("beta", "SE", "CI Lower", "CI Upper")
   rownames(CI) <- rownames(b)
 
-  CI_table <-  CI[,3:4] %>% knitr::kable()
+  CI_table <-  CI[,3:4] #%>% knitr::kable()
 
   return(CI_table)
   
@@ -317,11 +316,13 @@ ci_95 <- function(data) {
 ```
 
 ``` {r}
+# Compare 95% confidence interval for return on education using nearc4 has IV to that of the OLS above (model_1)
+ci_95(sIV) %>% knitr::kable(caption = "Return using nearcr as instrument")
 
-ci_95(rf)
+ci_95(model1) %>% knitr::kable(caption = "Return on education")
 
 ```
-
+Wider confidence intervals...
 
 
 ### (e) Multiple IV
