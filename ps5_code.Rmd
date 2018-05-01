@@ -401,16 +401,16 @@ tsls <- function(data, dep_var, endo_vars, exo_vars, i_vars) {
   
   # first stage: Regress the endogenous variables on all exogenous variables and an intercept, save fitted values
   X1 <- unlist(list(c(exo_vars), c(i_vars)))
-  x_hat <- ols(data = data, y_data = endo_vars, X_data = X1)$vars$y_hat
+  x_star <- ols(data = data, y_data = endo_vars, X_data = X1)$vars$y_hat
   
   namesdf <- names(data)
-  data %<>% cbind(x_hat) 
-  colnames(data) <- c(namesdf, "x_hat")
+  data %<>% cbind(x_star) 
+  colnames(data) <- c(namesdf, "x_star")
   
   # second stage: Rgress the dependent variable on the exogenous x and x_hat
-  X2 <- unlist(list(c(exo_vars), "x_hat"))
+  X_hat <- unlist(list(c(exo_vars), "x_star"))
   
-  s2 <- ols(data, y_data = dep_var, X_data = X2)
+  s2 <- ols(data, y_data = dep_var, X_data = X_hat)
   
   return(s2)
   
@@ -427,7 +427,7 @@ dep_var <- c("lwage")
 #TEST FUNCTION
 two_stage <- tsls(data = card_df, dep_var, endo_vars, exo_vars, i_vars)
 
-
+two_stage$ttest
 
 ```
 
