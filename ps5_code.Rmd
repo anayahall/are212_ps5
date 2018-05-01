@@ -447,12 +447,25 @@ dee doo doo :)
 **Should we worry about endogenaity?**
 Conduct a Hausman test for endogeneity of educ. Report your test statistic, critical value and p-value.
 
-``` {r hausman_function}
+Procedure:
+1. Regress endogenous var X on instrument(s) Z. save residuals as v_hat
+2. Include v_hat in original model
+3. test if paramater coefficient on v-hat = 0 (ttest)
 
-hausman <- function() {
+*Note: This test is only valid asymptotically (and, of course, is only as good as the instruments used).
+
+
+``` {r}
+
+hausman <- function(data, dep_var, exo_vars, endo_vars, i_vars) {
   
+  #run ols
+  v_hat <- ols(data, endo_vars, i_vars)$vars$e
+  
+  cbind()
   
 }
 
 
 ```
+
