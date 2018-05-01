@@ -394,9 +394,6 @@ vcov_white <- function(data, y_var, X_vars, intercept = T) {
 
 
 
-
-
-
 ### (e) Multiple IV
 Use *nearc2* and *nearc4* as instruments for *educ.* 
 
@@ -457,15 +454,31 @@ Procedure:
 
 ``` {r}
 
-hausman <- function(data, dep_var, exo_vars, endo_vars, i_vars) {
+hausman <- function(data, dep_var, endo_vars, Z_vars) {
   
   #run ols
-  v_hat <- ols(data, endo_vars, i_vars)$vars$e
+  v_hat <- ols(data, endo_vars, Z_vars)$vars$e
   
-  cbind()
+  namesdf <- names(data)
+  data %<>% cbind(v_hat) 
+  colnames(data) <- c(namesdf, "v_hat") 
   
+  Z2 <- unlist(list(c(Z_vars), "v_hat"))
+  
+  ht <- ols(data, dep_var, Z2)$ttest
+  
+  return(ht)
 }
 
+Z_vars <- c("exper", "expersq", "black", "south", "smsa", 
+              "smsa66", "reg661", "reg662", "reg663", "reg664", 
+              "reg665", "reg666", "reg667", "reg668", "nearc4", "nearc2")
+endo_vars <- c("educ")
+dep_var <- c("lwage")
+
+hausman(card_df, dep_var, endo_vars, Z_vars)
 
 ```
+The test statistic on v_hat is 21.180, corresponding to a p-value of 0.0000. At a 95% significance level (or even 99% level!) we reject the null hypothesis-- evidence of endogeneity!
+
 
