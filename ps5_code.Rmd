@@ -57,7 +57,7 @@ $plim b_7 = \beta_7 + \gamma \cdot \frac {Cov [ abil , educ ]} {Var [educ]}$
 Truth is $\beta_7$ , bias is $\gamma \cdot \frac {Cov [ abil , educ ]} {Var [educ]}$
 
 We expect the sign on $\gamma$ to be positive (higher abiltiy should lead to higher wage), the covariance of ability and education to also be positive (more able people acheive higher levels of education), and, of course, the variance of education is positive.
-Thus, the bias will also be *positive*.
+Thus, the bias will also be *positive* (biased upward!).
 
 ### (b) Proxy for ability
 Estimate the model above excluding ability, record your parameter estimates, standard errors and $R^2$.
@@ -216,7 +216,7 @@ model_iq$mof
 ### (d) Returns on education.
 *What happens to returns to schooling? Does this result confirm your suspicion of how ability and schooling are expected to be correlated?*
 
-Magnitude of the parameter estimate on education decreased. If IQ **is** a good proxy for ability, this does confirm our suspicion that ability is correlated with education. In the first model, some of the returns on ability (IQ) were mis-attributed to education. In the second model, we correct for this, and see that the parameter estimate on ability is indeed significant.
+When we include IQ, the magnitude of the parameter estimate for the returns on education decreased, which suggests that we were correct in our guess that the estimate from the first OLS regression was upwardly biased. If IQ **is** a good proxy for ability, this does confirm our suspicion that ability is correlated with education. In the first model, some of the returns on ability (IQ) were mis-attributed to education. In the second model, we correct for this, and see that the parameter estimate on ability is indeed significant.
 
 
 ## Question 2: Recreate results from Card
@@ -247,7 +247,7 @@ ggplot(data = gather(card_df), aes(x = value)) +
 
 ``` {r lwage_ols}
 
-rhs_vars <- c("educ", "exper", "expersq", "black", "south", "smsa", "smsa66", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668")
+rhs_vars <- c("educ", "exper", "expersq", "black", "south", "smsa66", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668", "smsa")
 
 model1 <- ols(card_df, "lwage", rhs_vars)
 
@@ -263,7 +263,7 @@ Estimate reduced form equation for *educ* containing all of the explanatory vari
 
 ```{r reduced_form via OLS}
 
-rhs_vars <- c("nearc4", "exper", "expersq", "black", "south", "smsa", "smsa66", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668")
+rhs_vars <- c("nearc4", "exper", "expersq", "black", "south", "smsa", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668", "smsa66")
 
 rf <- ols(card_df, "educ", rhs_vars)
 
@@ -280,27 +280,82 @@ Estimate the *log(wage)* equation by instrumental variables, using *nearc4* as a
 Compare the 95% confidence interval for the return to educutioan to that obtained from the Least Squares regression above.
 
 
-```{r singleIV}
+```{r IV_function, message = FALSE}
+
+iv <- function(data, y_var, X_vars, Z_vars, intercept = T, hetsked = T) {
+    y <- to_matrix (the_df = data, vars = y_vars)
+    X <- to_matrix (the_df = data, vars = X_vars)
+    Z <- to_matrix (the_df = data, vars = Z_vars)
+  
+  # Add intercept
+  if (intercept == T) X <- cbind(1, X)
+  if (intercept == T) Z <- cbind(1, Z)
+  # Calculate n and k for degrees of freedom
+  n <- nrow(X)
+  k <- ncol(X)
+  # Estimate coefficients
+  b <- solve(t(Z) %*% X) %*% t(Z) %*% y
+  # Update names
+  if (intercept == T) rownames(b)[1] <- "Intercept" # Calculate OLS residuals
+  e <- y - X %*% b
+  s2 <- (t(e) %*% e) / (n-k)
+  
+  # Calculate X_hat
+  X_hat <- Z %*% solve(t(Z) %*% Z) %*% t(Z) %*% X 
+  # Calculate the inverse of X_hat'X_hat
+  XX <- t(X_hat) %*% X_hat
+  # Inverse of X'X
+  XX_inv <- solve(XX)
+  # Calculate the variance-covariance matrix
+  if (hetsked == T) {
+    omega <- lapply(X = 1:n, FUN = function(i) {
+      # Define x_i
+      x_i <- matrix(as.vector(X_hat[i,]), nrow = 1) # Return x_i' x_i e_i^2
+      return(t(x_i) %*% x_i * e[i]^2)
+    }) %>% Reduce(f = "+", x = .) 
+  }
+  
+  if (hetsked == F) omega <- XX
+  # Calculate the standard error
+  se <- sqrt(s2 * diag(XX_inv %*% omega %*% XX_inv)) # Vector of _t_ statistics
+  t_stats <- (b - 0) / se
+  # Calculate the p-values
+  p_values = pt(q = abs(t_stats), df = n-k, lower.tail = F) * 2 # Names for coefficients
+  var_names <- X_vars
+  if (intercept == T) var_names <- c("Intercept", var_names)
+  
+  results <- data.frame(
+    effect = rownames(b),
+    coef = as.vector(b),
+    std_error = as.vector(se),
+    t_stat = as.vector(t_stats),
+    p_value = as.vector(p_values))
+  
+  return(results)
+}
 
 # RE-ESTIMATE THIS WITH HETEROSKEDASTICITY ROBUST!! 
 
-Z_vars <- c("nearc4", "exper", "expersq", "black", "south", "smsa", "smsa66", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668")
+Z_vars <- c("nearc4", "exper", "expersq", "black", "south", "smsa", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668", "smsa66")
+y_vars <- c("lwage")
+X_vars <- c("educ", "exper", "expersq", "black", "south", "smsa", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668", "smsa66")
+# # Run OLS
+iv1 <- iv(card_df, y_vars, X_vars, Z_vars, F) 
 
-# Run OLS
-sIV <- ols(card_df, "lwage", Z_vars)
-
-# Parameter Estimates
-sIV$ttest
+iv1 %>% knitr::kable()
+# 
+# # Parameter Estimates
+# sIV$ttest
 
 ```
 
 
-``` {r CI_function}
+``` {r CI_function, include = FALSE}
 
 # Create function to use OLS results to calculate 95% Confidence Interval
 ci_95 <- function(data) {
-  SE <- data$se
-  b <- data$b
+  SE <- data[,2]
+  b <- data[,1]
   
   CI <- matrix(b) %>% 
         cbind(SE) %>% 
@@ -317,11 +372,15 @@ ci_95 <- function(data) {
 
 ```
 
-``` {r}
-# Compare 95% confidence interval for return on education using nearc4 has IV to that of the OLS above (model_1)
-ci_95(sIV) %>% knitr::kable(caption = "Return using nearcr as instrument")
+``` {r calc CI}
 
-ci_95(model1) %>% knitr::kable(caption = "Return on education")
+
+
+# Compare 95% confidence interval for return on education using nearc4 has IV to that of the OLS above (model_1)
+#ci_95(iv1) %>% knitr::kable(caption = "Return using nearcr as instrument")
+#ci_95(model1) %>% knitr::kable(caption = "Return on education")
+
+
 
 ```
 Wider confidence intervals using *near4c* as IV than in the original model.
