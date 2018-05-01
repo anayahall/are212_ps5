@@ -280,7 +280,6 @@ Estimate the *log(wage)* equation by instrumental variables, using *nearc4* as a
 Compare the 95% confidence interval for the return to educutioan to that obtained from the Least Squares regression above.
 
 
-
 ```{r singleIV}
 
 # RE-ESTIMATE THIS WITH HETEROSKEDASTICITY ROBUST!! 
@@ -313,7 +312,6 @@ ci_95 <- function(data) {
   CI_table <-  CI[,3:4] #%>% knitr::kable()
 
   return(CI_table)
-  
   
 }
 
@@ -436,12 +434,11 @@ two_stage <- tsls(data = card_df, dep_var, endo_vars, exo_vars, i_vars)
 *Comment on the significance of the partial correlations of both instruments in the reduced form.* 
 *Show your standard errors from the second stage and compare them to the correct standard errors.*
 
-
-dee doo doo :)
+**FINISH STANDARD ERRORS!!!**
 
 
 ### (f) Hausman test
-**Should we worry about endogenaity?**
+*Should we worry about endogenaity?*
 Conduct a Hausman test for endogeneity of educ. Report your test statistic, critical value and p-value.
 
 Procedure:
