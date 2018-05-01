@@ -86,7 +86,7 @@ b_ols <- function(y, X) {
   return(beta_hat)
 }
 
-ols <- function(data, y_data, X_data, intercept = T, H0 = 0, two_tail = T, alpha = 0.05) {
+ols <- function(data, y_data, X_data, intercept = T, hetsked = F, H0 = 0, two_tail = T, alpha = 0.05) {
   # Function setup ----
     # Require the 'dplyr' package
     require(dplyr)
@@ -106,6 +106,21 @@ ols <- function(data, y_data, X_data, intercept = T, H0 = 0, two_tail = T, alpha
     b <- solve(t(X) %*% X) %*% t(X) %*% y
     y_hat <- X %*% b
     e <- y - y_hat
+   
+    # Inverse of X'X
+    XX <- t(X) %*% X
+    XX_inv <- solve(t(X) %*% X)
+    
+    if (hetsked == T) {
+      # For each row, calculate x_i' x_i e_i^2; then sum
+     sigma_hat <- lapply(X = 1:n, FUN = function(i) {
+      # Define x_i
+      x_i <- matrix(as.vector(X[i,]), nrow = 1)
+      # Return x_i' x_i e_i^2
+      return(t(x_i) %*% x_i * e[i]^2)
+      }) %>% Reduce(f = "+", x = .) }
+    
+    if (hetsked == F) sigma_hat <- XX
     
   # Useful -----
     n <- nrow(X) # number of observations
@@ -142,7 +157,7 @@ ols <- function(data, y_data, X_data, intercept = T, H0 = 0, two_tail = T, alpha
   
   # t-test----
     # Standard error
-    se <- as.vector(sqrt(s2 * diag(solve(t(X) %*% X))))
+    se <- sqrt(s2 * diag(XX_inv %*% sigma_hat %*% XX_inv)) # Vector of _t_ statistics
     # Vector of _t_ statistics
     t_stats <- (b - H0) / se
     # Calculate the p-values
@@ -308,16 +323,16 @@ iv <- function(data, y_var, X_vars, Z_vars, intercept = T, hetsked = T) {
   XX_inv <- solve(XX)
   # Calculate the variance-covariance matrix
   if (hetsked == T) {
-    omega <- lapply(X = 1:n, FUN = function(i) {
+    sigma_hat <- lapply(X = 1:n, FUN = function(i) {
       # Define x_i
       x_i <- matrix(as.vector(X_hat[i,]), nrow = 1) # Return x_i' x_i e_i^2
       return(t(x_i) %*% x_i * e[i]^2)
     }) %>% Reduce(f = "+", x = .) 
   }
   
-  if (hetsked == F) omega <- XX
+  if (hetsked == F) sigma_hat <- XX
   # Calculate the standard error
-  se <- sqrt(s2 * diag(XX_inv %*% omega %*% XX_inv)) # Vector of _t_ statistics
+  se <- sqrt(s2 * diag(XX_inv %*% sigma_hat %*% XX_inv)) # Vector of _t_ statistics
   t_stats <- (b - 0) / se
   # Calculate the p-values
   p_values = pt(q = abs(t_stats), df = n-k, lower.tail = F) * 2 # Names for coefficients
@@ -340,83 +355,38 @@ Z_vars <- c("nearc4", "exper", "expersq", "black", "south", "smsa", "reg661", "r
 y_vars <- c("lwage")
 X_vars <- c("educ", "exper", "expersq", "black", "south", "smsa", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668", "smsa66")
 # # Run OLS
-iv1 <- iv(card_df, y_vars, X_vars, Z_vars, F) 
+iv1 <- iv(card_df, y_vars, X_vars, Z_vars, T, T) 
 
 iv1 %>% knitr::kable()
-# 
-# # Parameter Estimates
-# sIV$ttest
+
 
 ```
 
-
-``` {r CI_function, include = FALSE}
-
-# Create function to use OLS results to calculate 95% Confidence Interval
-ci_95 <- function(data) {
-  SE <- data[,2]
-  b <- data[,1]
-  
-  CI <- matrix(b) %>% 
-        cbind(SE) %>% 
-            cbind(CI_l = (b - 1.96 * SE), 
-                  CI_u = (b + 1.96 * SE))
-  colnames(CI) <- c("beta", "SE", "CI Lower", "CI Upper")
-  rownames(CI) <- rownames(b)
-
-  CI_table <-  CI[,3:4] #%>% knitr::kable()
-
-  return(CI_table)
-  
-}
-
-```
 
 ``` {r calc CI}
-
-
-
 # Compare 95% confidence interval for return on education using nearc4 has IV to that of the OLS above (model_1)
-#ci_95(iv1) %>% knitr::kable(caption = "Return using nearcr as instrument")
-#ci_95(model1) %>% knitr::kable(caption = "Return on education")
 
+iv_b <- 0.1315038
+iv_se <- 0.0210
+
+ols_b <- 0.075
+ols_se <- 0.0035
+
+CI <- function(b, se, alpha=1.96) {
+  CI <- list((b - alpha*se), (b + alpha*se))
+  return(CI)
+}
+
+CI(iv_b, iv_se) %>% knitr::kable(caption = "Return using nearcr as instrument")
+
+CI(ols_b, ols_se) %>% knitr::kable(caption = "Return on education")
 
 
 ```
-Wider confidence intervals using *near4c* as IV than in the original model.
+Wider confidence intervals using *near4c* as IV than in the original model. The 95% confidence interval using the instrument is [0.0903, 0.1727], while from OLS it was [0.0681,0.0819]. 
 
-###### ----> heteroskedastic robust?
 
 First bring in functions for Whites Heteroskedasticity robust estimators ???
-[below is code from ps3, not quite right though.]
-```{r Spherical varcov fxn}
-
-# Function for OLS coef., SE, t-stat, and p-value
-vcov_ols <- function(data, y_var, X_vars, intercept = T) {
-  # Turn data into matrices
-  y <- to_matrix(data, y_var)
-  X <- to_matrix(data, X_vars)
-  # Add intercept
-  if (intercept == T) X <- cbind(1, X)
-  # Calculate n and k for degrees of freedom
-  n <- nrow(X)
-  k <- ncol(X)
-  # Estimate coefficients
-  b <- b_ols(y, X)
-  # Update names
-  if (intercept == T) rownames(b)[1] <- "Intercept"
-  # Calculate OLS residuals
-  e <- y - X %*% b
-  # Calculate s^2
-  s2 <- (t(e) %*% e) / (n-k)
-  s2 %<>% as.numeric()
-  # Inverse of X'X
-  XX_inv <- solve(t(X) %*% X)
-  # Return the results
-  return(as.numeric(s2) * XX_inv)
-}  
-```
-
 
 ```{r Robust varcov fxn}
 vcov_white <- function(data, y_var, X_vars, intercept = T) {
@@ -455,45 +425,96 @@ vcov_white <- function(data, y_var, X_vars, intercept = T) {
 Use *nearc2* and *nearc4* as instruments for *educ.* 
 
 First, lets build a function for two stage least squares (2SLS or TSLS) - Multiple Instruments
+``` {r eds 2sls function}
+b_2sls <- function(data, y_var, X_vars, Z_vars, intercept = T) {
+  # Turn data into matrices
+  y <- to_matrix(data, y_var)
+  X <- to_matrix(data, X_vars)
+  Z <- to_matrix(data, Z_vars)
+  # Add intercept
+  if (intercept == T) X <- cbind(1, X)
+  if (intercept == T) Z <- cbind(1, Z)
+  # Estimate the first stage
+  b_stage1 <- solve(t(Z) %*% Z) %*% t(Z) %*% X
+  # Fit the first stage values
+  X_hat <- Z %*% b_stage1
+  # Estimate the second stage
+  b_stage2 <- solve(t(X_hat) %*% X_hat) %*% t(X_hat) %*% y
+  # Update names
+  if (intercept == T) rownames(b_stage2)[1] <- "Intercept"
+  # Return beta_hat
+  return(b_stage2)
+}
+
+
+````
+
+
 ``` {r}
-tsls <- function(data, dep_var, endo_vars, exo_vars, i_vars) {
+tsls <- function(data, y_vars, X_vars, Z_vars, intercept = T, hetsked = F) {
   
-  # first stage: Regress the endogenous variables on all exogenous variables and an intercept, save fitted values
-  X1 <- unlist(list(c(exo_vars), c(i_vars)))
-  x_star <- ols(data = data, y_data = endo_vars, X_data = X1)$vars$y_hat
-  
-  namesdf <- names(data)
-  data %<>% cbind(x_star) 
-  colnames(data) <- c(namesdf, "x_star")
-  
-  # second stage: Rgress the dependent variable on the exogenous x and x_hat
-  X_hat <- unlist(list(c(exo_vars), "x_star"))
-  
-  s2 <- ols(data, y_data = dep_var, X_data = X_hat)
-  
-  return(s2)
+  # Turn data into matrices
+  y <- to_matrix(data, y_vars)
+  X <- to_matrix(data, X_vars)
+  Z <- to_matrix(data, Z_vars)
+  # Calculate n and k for degrees of freedom
+  n <- nrow(X)
+  k <- ncol(X)
+  # Add intercept
+  if (intercept == T) X <- cbind(1, X)
+  if (intercept == T) Z <- cbind(1, Z)
+  # Calculate P_Z
+  P_Z <- Z %*% solve(t(Z) %*% Z) %*% t(Z)
+  # Calculate b_2sls
+  b <- solve(t(X) %*% P_Z %*% X) %*% t(X) %*% P_Z %*% y
+  # Calculate OLS residuals
+  e <- y - X %*% b
+  # Calculate s^2
+  s2 <- (t(e) %*% e) / (n - k)
+  s2 %<>% as.numeric()
+  # Inverse of X' Pz X
+  XX_inv <- solve(t(X) %*% P_Z %*% X)
+  # Standard error
+  se <- sqrt(s2 * diag(XX_inv))
+  # Vector of _t_ statistics
+  t_stats <- (b - 0) / se
+  # Calculate the p-values
+  p_values = pt(q = abs(t_stats), df = n-k, lower.tail = F) * 2
+  # Update names
+  if (intercept == T) rownames(b)[1] <- "Intercept"
+  # Nice table (data.frame) of results
+  results <- data.frame(
+    # The rows have the coef. names
+    effect = rownames(b),
+    # Estimated coefficients
+    coef = as.vector(b),
+    # Standard errors
+    std_error = as.vector(se),
+    # t statistics
+    t_stat = as.vector(t_stats),
+    # p-values
+    p_value = as.vector(p_values)
+    )
+  # Return the results
+  return(results)
   
 }
 
-exo_vars <- X1 <- c("exper", "expersq", "black", "south", "smsa", 
-              "smsa66", "reg661", "reg662", "reg663", "reg664", 
-              "reg665", "reg666", "reg667", "reg668")
-endo_vars <- c("educ")
-i_vars <- c("nearc4", "nearc2")
-dep_var <- c("lwage")
-
+Z_vars <- c("nearc4", "nearc2", "exper", "expersq", "black", "south", "smsa", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668", "smsa66")
+y_vars <- c("lwage")
+X_vars <- c("educ", "exper", "expersq", "black", "south", "smsa", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668", "smsa66")
 
 #TEST FUNCTION
-two_stage <- tsls(data = card_df, dep_var, endo_vars, exo_vars, i_vars)
+two_stage <- tsls(data = card_df, y_vars, X_vars, Z_vars, T, F)
 
-two_stage$ttest
+two_stage
 
 ```
 
 *Comment on the significance of the partial correlations of both instruments in the reduced form.* 
 *Show your standard errors from the second stage and compare them to the correct standard errors.*
 
-**FINISH STANDARD ERRORS!!!**
+---> what's the difference between second stage and 'correct' 2sls standard errors?
 
 
 ### (f) Hausman test
@@ -513,15 +534,15 @@ Procedure:
 hausman <- function(data, dep_var, endo_vars, Z_vars) {
   
   #run ols
-  v_hat <- ols(data, endo_vars, Z_vars)$vars$e
+  v_hat <- ols(data, endo_vars, Z_vars, T, F)$vars$e
   
   namesdf <- names(data)
   data %<>% cbind(v_hat) 
   colnames(data) <- c(namesdf, "v_hat") 
   
-  Z2 <- unlist(list(c(Z_vars), "v_hat"))
+  Z2 <- unlist(list(c(Z_vars), c(endo_vars), "v_hat"))
   
-  ht <- ols(data, dep_var, Z2)$ttest
+  ht <- ols(data, dep_var, Z2, T, F)$ttest
   
   return(ht)
 }
@@ -533,6 +554,9 @@ endo_vars <- c("educ")
 dep_var <- c("lwage")
 
 hausman(card_df, dep_var, endo_vars, Z_vars)
+
+### FORGET THE FUNCTION AND JUST TRY TO SOLVE!
+
 
 ```
 The test statistic on v_hat is 21.180, corresponding to a p-value of 0.0000. At a 95% significance level (or even 99% level!) we reject the null hypothesis-- evidence of endogeneity!
