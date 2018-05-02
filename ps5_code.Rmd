@@ -43,7 +43,7 @@ wage_df %<>% select(lwage, wage, exper, tenure, married, south, urban, black, ed
 ### (a) Bias of coefficient on education
 Derive the bias of $\beta_7$. Show which direction the bias goes in depending on whether the correlation between ability and education is positive or negative.
 
-$ abil = \delta_0 + exper \cdot \delta_1 + tenure \cdot \delta_2 + married \cdot \delta_3 + south \cdot \delta_4 + urban \cdot \delta_5 + black \cdot \delta_6 + educ \cdot \delta_7 + \eta$
+$abil = \delta_0 + exper \cdot \delta_1 + tenure \cdot \delta_2 + married \cdot \delta_3 + south \cdot \delta_4 + urban \cdot \delta_5 + black \cdot \delta_6 + educ \cdot \delta_7 + \eta$
 
 
 $log(wage) = (\beta_0 + \gamma \delta_0) + exper \cdot (\beta_1 + \gamma \delta_1) + tenure \cdot (\beta_2 + \gamma \delta_2) + married \cdot (\beta_3 + \gamma \delta_3) + south \cdot (\beta_4 + \gamma \delta_4) + urban \cdot (\beta_5 + \gamma \delta_5)  + black \cdot (\beta_6 + \gamma \delta_6) + educ \cdot (\beta_7 + \gamma \delta_7) + \gamma \eta + v$
@@ -643,6 +643,6 @@ orig$ttest
 
 
 ```
-The test statistic on v_hat is -1.710, corresponding to a p-value of 0.0873. At a 95% significance level (or even 99% level!) we fail to reject the null hypothesis, thus no evidence of endogeity.
+The test statistic on v_hat is -1.710, corresponding to a p-value of 0.0873. At a 95% significance level (or even 99% level!) we fail to reject the null hypothesis, thus no evidence of endogeneity.
 
 
