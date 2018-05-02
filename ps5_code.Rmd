@@ -349,8 +349,6 @@ iv <- function(data, y_var, X_vars, Z_vars, intercept = T, hetsked = T) {
   return(results)
 }
 
-# RE-ESTIMATE THIS WITH HETEROSKEDASTICITY ROBUST!! 
-
 Z_vars <- c("nearc4", "exper", "expersq", "black", "south", "smsa", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668", "smsa66")
 y_vars <- c("lwage")
 X_vars <- c("educ", "exper", "expersq", "black", "south", "smsa", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668", "smsa66")
@@ -386,7 +384,7 @@ CI(ols_b, ols_se) %>% knitr::kable(caption = "Return on education")
 Wider confidence intervals using *near4c* as IV than in the original model. The 95% confidence interval using the instrument is [0.0903, 0.1727], while from OLS it was [0.0681,0.0819]. 
 
 
-First bring in functions for Whites Heteroskedasticity robust estimators ???
+First bring in functions for Whites Heteroskedasticity robust estimators (--> include this in function?)
 
 ```{r Robust varcov fxn}
 vcov_white <- function(data, y_var, X_vars, intercept = T) {
@@ -463,6 +461,27 @@ tsls <- function(data, y_vars, X_vars, Z_vars, intercept = T, hetsked = F) {
   # Add intercept
   if (intercept == T) X <- cbind(1, X)
   if (intercept == T) Z <- cbind(1, Z)
+  
+  redform <- ols(data, y_vars, Z_vars, intercept, hetsked)$ttest
+  
+  # First stage
+  b_stage1 <- solve(t(Z) %*% Z) %*% t(Z) %*% X
+  # Fit the first stage values
+  X_hat <- Z %*% b_stage1
+  # Estimate the second stage
+  b_stage2 <- solve(t(X_hat) %*% X_hat) %*% t(X_hat) %*% y
+ 
+   # INCORRECT STANDARD ERRORS -- use X_hat
+  e_inc <- y - X_hat %*% b_stage2
+  s2_inc <- (t(e_inc) %*% e_inc) / (n-k)
+  s2_inc %<>% as.numeric()
+  XX_inv <- solve(t(X_hat) %*% X_hat)
+  se_inc <- sqrt(s2_inc * diag(XX_inv))
+  
+  # Update names
+  if (intercept == T) rownames(b_stage2)[1] <- "Intercept"
+  
+  
   # Calculate P_Z
   P_Z <- Z %*% solve(t(Z) %*% Z) %*% t(Z)
   # Calculate b_2sls
@@ -470,20 +489,24 @@ tsls <- function(data, y_vars, X_vars, Z_vars, intercept = T, hetsked = F) {
   # Calculate OLS residuals
   e <- y - X %*% b
   # Calculate s^2
-  s2 <- (t(e) %*% e) / (n - k)
+  s2 <- (t(e) %*% e) / (n - k)   
   s2 %<>% as.numeric()
   # Inverse of X' Pz X
   XX_inv <- solve(t(X) %*% P_Z %*% X)
   # Standard error
-  se <- sqrt(s2 * diag(XX_inv))
+  se <- sqrt(s2 * diag(XX_inv))    # These should be the 'correct' standard errors
   # Vector of _t_ statistics
   t_stats <- (b - 0) / se
+  t_stats_inc <- (b - 0) / se_inc
   # Calculate the p-values
   p_values = pt(q = abs(t_stats), df = n-k, lower.tail = F) * 2
+  p_values_inc = pt(q = abs(t_stats_inc), df = n-k, lower.tail = F) * 2
+
   # Update names
   if (intercept == T) rownames(b)[1] <- "Intercept"
-  # Nice table (data.frame) of results
-  results <- data.frame(
+  
+  # Nice table (data.frame) of CORRECT results
+  correct_res <- data.frame(
     # The rows have the coef. names
     effect = rownames(b),
     # Estimated coefficients
@@ -495,26 +518,53 @@ tsls <- function(data, y_vars, X_vars, Z_vars, intercept = T, hetsked = F) {
     # p-values
     p_value = as.vector(p_values)
     )
+  # INCORRECT RESULTS
+    incorrect_res <- data.frame(
+    effect = rownames(b),
+    coef = as.vector(b),
+    std_error = as.vector(se_inc),
+    # t statistics
+    t_stat = as.vector(t_stats_inc),
+    # p-values
+    p_value = as.vector(p_values_inc)
+  )
+
+  results_list <- list()
+  
   # Return the results
-  return(results)
+  return(list(correctSE = correct_res, incorrectSE = incorrect_res, redform = redform))
   
 }
 
 Z_vars <- c("nearc4", "nearc2", "exper", "expersq", "black", "south", "smsa", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668", "smsa66")
 y_vars <- c("lwage")
 X_vars <- c("educ", "exper", "expersq", "black", "south", "smsa", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668", "smsa66")
+```
 
-#TEST FUNCTION
+
+``` {r run 2sls}
+#RUN FUNCTION
 two_stage <- tsls(data = card_df, y_vars, X_vars, Z_vars, T, F)
 
-two_stage
+# Reduced Form
+two_stage$redform 
 
 ```
 
 *Comment on the significance of the partial correlations of both instruments in the reduced form.* 
+
+Both instruments (*nearc4* and *nearc2*) show positive and significant effects.
+
 *Show your standard errors from the second stage and compare them to the correct standard errors.*
 
----> what's the difference between second stage and 'correct' 2sls standard errors?
+``` {r correct v incorrect SE in 2sls}
+
+two_stage$correctSE %>% knitr::kable(caption = "Correct Standard Errors")
+
+two_stage$incorrectSE %>% knitr::kable(caption = "Incorrect Standard Errors")
+
+
+```
 
 
 ### (f) Hausman test
@@ -531,34 +581,34 @@ Procedure:
 
 ``` {r}
 
-hausman <- function(data, dep_var, endo_vars, Z_vars) {
-  
-  #run ols
-  v_hat <- ols(data, endo_vars, Z_vars, T, F)$vars$e
-  
-  namesdf <- names(data)
-  data %<>% cbind(v_hat) 
-  colnames(data) <- c(namesdf, "v_hat") 
-  
-  Z2 <- unlist(list(c(Z_vars), c(endo_vars), "v_hat"))
-  
-  ht <- ols(data, dep_var, Z2, T, F)$ttest
-  
-  return(ht)
-}
-
-Z_vars <- c("exper", "expersq", "black", "south", "smsa", 
-              "smsa66", "reg661", "reg662", "reg663", "reg664", 
-              "reg665", "reg666", "reg667", "reg668", "nearc4", "nearc2")
-endo_vars <- c("educ")
-dep_var <- c("lwage")
-
-hausman(card_df, dep_var, endo_vars, Z_vars)
+# hausman <- function(data, dep_var, endo_vars, Z_vars) {
+#   
+#   #run ols
+#   v_hat <- ols(data, endo_vars, Z_vars, T, F)$vars$e
+#   
+#   namesdf <- names(data)
+#   data %<>% cbind(v_hat) 
+#   colnames(data) <- c(namesdf, "v_hat") 
+#   
+#   Z2 <- unlist(list(c(Z_vars), c(endo_vars), "v_hat"))
+#   
+#   ht <- ols(data, dep_var, Z2, T, F)$ttest
+#   
+#   return(ht)
+# }
+# 
+# Z_vars <- c("exper", "expersq", "black", "south", "smsa", 
+#               "smsa66", "reg661", "reg662", "reg663", "reg664", 
+#               "reg665", "reg666", "reg667", "reg668", "nearc4", "nearc2")
+# endo_vars <- c("educ")
+# dep_var <- c("lwage")
+# 
+# hausman(card_df, dep_var, endo_vars, Z_vars)
 
 ### FORGET THE FUNCTION AND JUST TRY TO SOLVE!
 
 
 ```
-The test statistic on v_hat is 21.180, corresponding to a p-value of 0.0000. At a 95% significance level (or even 99% level!) we reject the null hypothesis-- evidence of endogeneity!
+~~The test statistic on v_hat is 21.180, corresponding to a p-value of 0.0000. At a 95% significance level (or even 99% level!) we reject the null hypothesis-- evidence of endogeneity!~~
 
 
