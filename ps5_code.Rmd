@@ -274,6 +274,7 @@ model1$ttest
 
 ```
 
+
 These point estimates are very close to those of the paper. However, we do not know how to interprent yes/no from the region (reg661-668) and live in SMSA in 1966 (smsa66) variable in comparison to our estimate values.
 
 
@@ -537,7 +538,7 @@ X_vars <- c("educ", "exper", "expersq", "black", "south", "smsa", "reg661", "reg
 #RUN FUNCTION
 two_stage <- tsls(data = card_df, y_vars, X_vars, Z_vars, T, F)
 
-# Reduced Form
+# Reduced Form Results
 two_stage$redform 
 
 ```
