@@ -46,18 +46,22 @@ Derive the bias of $\beta_7$. Show which direction the bias goes in depending on
 $ abil = \delta_0 + exper \cdot \delta_1 + tenure \cdot \delta_2 + married \cdot \delta_3 + south \cdot \delta_4 + urban \cdot \delta_5 + black \cdot \delta_6 + educ \cdot \delta_7 + \eta$
 
 
-$log(wage) = (\beta_0 + \gamma \delta_0) + (\beta_1 + \gamma \delta_1) \cdot educ + (\beta_2 + \gamma \delta_2) \cdot tenure + (\beta_3 + \gamma \delta_3) \cdot married + (\beta_4 + \gamma \delta_4) \cdot south + (\beta_5 + \gamma \delta_5) \cdot urban  + (\beta_6 + \gamma \delta_6) \cdot black + (\beta_7 + \gamma \delta_7) \cdot educ + \gamma \eta + v$
-
-$plim b_7 = \beta_7 + \gamma \delta_7$
+$log(wage) = (\beta_0 + \gamma \delta_0) + exper \cdot (\beta_1 + \gamma \delta_1) + tenure \cdot (\beta_2 + \gamma \delta_2) + married \cdot (\beta_3 + \gamma \delta_3) + south \cdot (\beta_4 + \gamma \delta_4) + urban \cdot (\beta_5 + \gamma \delta_5)  + black \cdot (\beta_6 + \gamma \delta_6) + educ \cdot (\beta_7 + \gamma \delta_7) + \gamma \eta + v$
 
 Assume that all $\delta$’s are zero except for the one on the variable of interest (education)
+
+$log(wage) = \beta_0 + exper \cdot \beta_1 + tenure \cdot \beta_2 + married \cdot \beta_3 + south \cdot \beta_4 + urban \cdot \beta_5  + black \cdot \beta_6 + educ \cdot (\beta_7 + \gamma \delta_7) + \gamma \eta + v$
+
+Where
+
+$plim b_7 = \beta_7 + \gamma \delta_7$
 
 $plim b_7 = \beta_7 + \gamma \cdot \frac {Cov [ abil , educ ]} {Var [educ]}$
 
 Truth is $\beta_7$ , bias is $\gamma \cdot \frac {Cov [ abil , educ ]} {Var [educ]}$
 
 We expect the sign on $\gamma$ to be positive (higher abiltiy should lead to higher wage), the covariance of ability and education to also be positive (more able people acheive higher levels of education), and, of course, the variance of education is positive.
-Thus, the bias will also be *positive* (biased upward!).
+Thus, the bias will also be *positive* (biased upward! i.e. we will over attribute the effect of education on wage).
 
 ### (b) Proxy for ability
 Estimate the model above excluding ability, record your parameter estimates, standard errors and $R^2$.
@@ -231,7 +235,7 @@ model_iq$mof
 ### (d) Returns on education.
 *What happens to returns to schooling? Does this result confirm your suspicion of how ability and schooling are expected to be correlated?*
 
-When we include IQ, the magnitude of the parameter estimate for the returns on education decreased, which suggests that we were correct in our guess that the estimate from the first OLS regression was upwardly biased. If IQ **is** a good proxy for ability, this does confirm our suspicion that ability is correlated with education. In the first model, some of the returns on ability (IQ) were mis-attributed to education. In the second model, we correct for this, and see that the parameter estimate on ability is indeed significant.
+When we include IQ, the magnitude of the parameter estimate for the returns on education decreased, which suggests that we were correct in our guess that the estimate from the first OLS regression was upwardly biased. If IQ **is** a good proxy for ability, this does confirm our suspicion that ability is correlated with education. In the first model, some of the returns on ability (IQ) were mis-attributed to education. In the second model, we correct for this, and see that the parameter estimate on ability is indeed significant. As well, we get a better fit, R$^2$, when including the IQ.
 
 
 ## Question 2: Recreate results from Card
@@ -262,14 +266,14 @@ ggplot(data = gather(card_df), aes(x = value)) +
 
 ``` {r lwage_ols}
 
-rhs_vars <- c("educ", "exper", "expersq", "black", "south", "smsa66", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668", "smsa")
+rhs_vars <- c("educ", "exper", "expersq", "black", "south", "smsa", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668", "smsa66")
 
 model1 <- ols(card_df, "lwage", rhs_vars)
 
 model1$ttest
 
 ```
-*CHECK RESULTS AGAINST PAPER*---> I can't find this ?
+These point estimates are very close to those of the paper. However, we do not know how to interprent yes/no from the region (reg661-668) and live in SMSA in 1966 (smsa66) variable in comparison to our estimate values.
 
 
 
@@ -297,7 +301,7 @@ Compare the 95% confidence interval for the return to educutioan to that obtaine
 
 ```{r IV_function, message = FALSE}
 
-iv <- function(data, y_var, X_vars, Z_vars, intercept = T, hetsked = T) {
+iv <- function(data, y_var, X_vars, Z_vars, intercept = T, hetsked = T, alpha = 0.05) {
     y <- to_matrix (the_df = data, vars = y_vars)
     X <- to_matrix (the_df = data, vars = X_vars)
     Z <- to_matrix (the_df = data, vars = Z_vars)
@@ -339,23 +343,42 @@ iv <- function(data, y_var, X_vars, Z_vars, intercept = T, hetsked = T) {
   var_names <- X_vars
   if (intercept == T) var_names <- c("Intercept", var_names)
   
-  results <- data.frame(
-    effect = rownames(b),
-    coef = as.vector(b),
-    std_error = as.vector(se),
-    t_stat = as.vector(t_stats),
-    p_value = as.vector(p_values))
+    # t-test----
+    # Do we (fail to) reject?
+    reject <- ifelse(p_values < alpha, reject <- "Reject", reject <- "Fail to Reject")
+    # Nice table (data.frame) of results
+    results <- data.frame(
+      # The rows have the coef. names
+      effect = rownames(b),
+      # Estimated coefficients
+      coef = as.vector(b) %>% round(3),
+      # Standard errors
+      std_error = as.vector(se) %>% round(4),
+      # t statistics
+      t_stat = as.vector(t_stats) %>% round(3),
+      # p-values
+      p_value = as.vector(p_values) %>% round(4),
+      # reject null?
+      significance = as.character(reject)
+      )
   
-  return(results)
+    ttest_table <-  results %>% knitr::kable(
+      col.names = c("", "Coef.", "S.E.", "t Stat", "p-Value", "Decision"),
+      booktabs = T,
+      format.args = list(scientific = F),
+      escape = F,
+      caption = "IV-OLS Results")
+  
+  return(ttest_table)
 }
 
 Z_vars <- c("nearc4", "exper", "expersq", "black", "south", "smsa", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668", "smsa66")
 y_vars <- c("lwage")
 X_vars <- c("educ", "exper", "expersq", "black", "south", "smsa", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668", "smsa66")
 # # Run OLS
-iv1 <- iv(card_df, y_vars, X_vars, Z_vars, T, T) 
+(iv1 <- iv(card_df, y_vars, X_vars, Z_vars, T, T))
 
-iv1 %>% knitr::kable()
+
 
 
 ```
@@ -384,7 +407,7 @@ CI(ols_b, ols_se) %>% knitr::kable(caption = "Return on education")
 Wider confidence intervals using *near4c* as IV than in the original model. The 95% confidence interval using the instrument is [0.0903, 0.1727], while from OLS it was [0.0681,0.0819]. 
 
 
-First bring in functions for Whites Heteroskedasticity robust estimators (--> include this in function?)
+First bring in functions for Whites Heteroskedasticity robust estimators.
 
 ```{r Robust varcov fxn}
 vcov_white <- function(data, y_var, X_vars, intercept = T) {
@@ -580,35 +603,46 @@ Procedure:
 
 
 ``` {r}
+Z_vars <- c("exper", "expersq", "black", "south", "smsa",
+              "smsa66", "reg661", "reg662", "reg663", "reg664",
+              "reg665", "reg666", "reg667", "reg668", "nearc4", "nearc2")
+
+card_df %<>% mutate(v_hat = ols(card_df,"educ",Z_vars,T,F)$vars$e)
+
+X_vars <- c("educ", "exper", "expersq", "black", "south", "smsa", "reg661", "reg662", "reg663", "reg664", "reg665", "reg666", "reg667", "reg668", "smsa66", "v_hat")
+
+orig <- ols(card_df,"lwage",X_vars,T,F,alpha = 0.05)
+
+orig$ttest
 
 # hausman <- function(data, dep_var, endo_vars, Z_vars) {
-#   
+#
 #   #run ols
 #   v_hat <- ols(data, endo_vars, Z_vars, T, F)$vars$e
-#   
+#
 #   namesdf <- names(data)
-#   data %<>% cbind(v_hat) 
-#   colnames(data) <- c(namesdf, "v_hat") 
-#   
+#   data %<>% cbind(v_hat)
+#   colnames(data) <- c(namesdf, "v_hat")
+#
 #   Z2 <- unlist(list(c(Z_vars), c(endo_vars), "v_hat"))
-#   
+#
 #   ht <- ols(data, dep_var, Z2, T, F)$ttest
-#   
+#
 #   return(ht)
 # }
-# 
-# Z_vars <- c("exper", "expersq", "black", "south", "smsa", 
-#               "smsa66", "reg661", "reg662", "reg663", "reg664", 
+#
+# Z_vars <- c("exper", "expersq", "black", "south", "smsa",
+#               "smsa66", "reg661", "reg662", "reg663", "reg664",
 #               "reg665", "reg666", "reg667", "reg668", "nearc4", "nearc2")
 # endo_vars <- c("educ")
 # dep_var <- c("lwage")
-# 
+#
 # hausman(card_df, dep_var, endo_vars, Z_vars)
 
 ### FORGET THE FUNCTION AND JUST TRY TO SOLVE!
 
 
 ```
-~~The test statistic on v_hat is 21.180, corresponding to a p-value of 0.0000. At a 95% significance level (or even 99% level!) we reject the null hypothesis-- evidence of endogeneity!~~
+The test statistic on v_hat is -1.710, corresponding to a p-value of 0.0873. At a 95% significance level (or even 99% level!) we fail to reject the null hypothesis, thus no evidence of endogeity.
 
 
