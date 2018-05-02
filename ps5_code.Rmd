@@ -615,34 +615,8 @@ orig <- ols(card_df,"lwage",X_vars,T,F,alpha = 0.05)
 
 orig$ttest
 
-# hausman <- function(data, dep_var, endo_vars, Z_vars) {
-#
-#   #run ols
-#   v_hat <- ols(data, endo_vars, Z_vars, T, F)$vars$e
-#
-#   namesdf <- names(data)
-#   data %<>% cbind(v_hat)
-#   colnames(data) <- c(namesdf, "v_hat")
-#
-#   Z2 <- unlist(list(c(Z_vars), c(endo_vars), "v_hat"))
-#
-#   ht <- ols(data, dep_var, Z2, T, F)$ttest
-#
-#   return(ht)
-# }
-#
-# Z_vars <- c("exper", "expersq", "black", "south", "smsa",
-#               "smsa66", "reg661", "reg662", "reg663", "reg664",
-#               "reg665", "reg666", "reg667", "reg668", "nearc4", "nearc2")
-# endo_vars <- c("educ")
-# dep_var <- c("lwage")
-#
-# hausman(card_df, dep_var, endo_vars, Z_vars)
-
-### FORGET THE FUNCTION AND JUST TRY TO SOLVE!
-
 
 ```
-The test statistic on v_hat is -1.710, corresponding to a p-value of 0.0873. At a 95% significance level (or even 99% level!) we fail to reject the null hypothesis, thus no evidence of endogeneity.
+The test statistic on v_hat is -1.710, corresponding to a p-value of 0.0873. The critical value for a 95% significance level is $\pm$ 1.96, thus we fail to reject the null hypothesis, finding no significant evidence of endogeneity.
 
 
